@@ -5,30 +5,32 @@ import re
 from PIL import Image
 import pytesseract
 
-req = 'http://opac.ncu.edu.cn/reader/login.php'
+url = 'http://opac.ncu.edu.cn/reader/login.php'
 vcode_path = 'http://opac.ncu.edu.cn/reader/captcha.php'
 headers = {
         'Host':'opac.ncu.edu.cn',
+       'Referer':'http://lib.ncu.edu.cn/',
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.87 Safari/537.36',
         'Connection': 'keep-alive',}
-def down_png(sessi, img_path):
+user = '6103115080'
+password = '141612'
+def down_png(req, img_path):
     with open('check.png','wb') as f:
-        img_stream = sessi.get(img_path, stream=True)
+        img_stream = req.get(img_path, stream=True)
         for chunk in img_stream.iter_content(chunk_size=1024):
             if chunk:
                 f.write(chunk)
                 f.flush()
         f.close()
 
-def login(sessi,req,vcode,headers):
+def login(req,user,vcode,password,headers):
     data = {
-            'number':'6****',
-            'passwd':'******',
+            'number':user,
+            'passwd':password,
             'captcha':vcode,
             'select':'cert_no',
-            'returnUrl': ''
             }
-    r2 = sessi.post(req,data=data,headers=headers)
+    r2 = req.post(url,data=data,headers=headers)
     print r2.status_code
     if r2.status_code == 200:
         print '[*] login seccess!' + r2.content
@@ -37,11 +39,11 @@ def login(sessi,req,vcode,headers):
     else:
         return False
 
-def get_vcode(sessi,vcode_path):
+def get_vcode(req,vcode_path):
     vcode = ''
     while True:
         if re.match('\d{4}', vcode) is None:
-            down_png(sessi, vcode_path)
+            down_png(req, vcode_path)
             im = Image.open('check.png')
             vcode = pytesseract.image_to_string(im)
             vcode = vcode[:4]
@@ -49,10 +51,13 @@ def get_vcode(sessi,vcode_path):
             print 'verification code is ' + vcode
             break
     return vcode
-sessi = requests.Session()
-vcode = get_vcode(sessi, vcode_path)
+req = requests.Session()
+vcode = get_vcode(req, vcode_path)
 
-if login(sessi,req,vcode,headers):
+if login(req,user,vcode,password,headers):
+    r = req.get('http://opac.ncu.edu.cn/reader/redr_info.php')
+    soup = BeautifulSoup(r.content,"lxml")
+    print soup.find_all(id="mylib_info")
     print 'You successly log in'
 else:
     print 'Please try again!'
